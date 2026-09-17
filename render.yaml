@@ -1,0 +1,56 @@
+# Render Blueprint for Dayflow HRMS
+# Deploys the Express/MongoDB API as a web service and the Vite/React
+# app as a static site. See: https://render.com/docs/blueprint-spec
+#
+# After the first deploy, double-check the auto-generated service URLs
+# in the Render dashboard match the ones referenced below (CLIENT_ORIGIN
+# on the backend, and the /api/* rewrite destination on the frontend) —
+# rename them here if Render appended a suffix because the name was taken.
+
+services:
+  # ---------------- Backend API ----------------
+  - type: web
+    name: dayflow-hrms-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false # set to your MongoDB Atlas connection string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_ORIGIN
+        value: https://dayflow-hrms-frontend.onrender.com
+
+  # ---------------- Frontend (static site) ----------------
+  - type: web
+    name: dayflow-hrms-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      # Proxy API calls to the backend service so the frontend's
+      # relative `/api` base URL keeps working in production.
+      - type: rewrite
+        source: /api/*
+        destination: https://dayflow-hrms-backend.onrender.com/api/*
+      # SPA fallback so client-side routes (e.g. /employee/profile)
+      # don't 404 on a hard refresh.
+      - type: rewrite
+        source: /*
+        destination: /index.html
